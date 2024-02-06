@@ -34,3 +34,18 @@ class Feeding(models.Model):
         # this reutrns everthing in the order of newest created first
         class Meta:
              ordering = ['-date']
+
+FEATHER_TYPE = (
+     ('F', 'Flight Feathers'),
+     ('C', 'Contour Feathers'),
+     ('D', 'Down Feathers')
+)
+class Feather(models.Model):
+     type = models.CharField(max_length=1,
+                             choices=FEATHER_TYPE,
+                             default=FEATHER_TYPE[0][0])
+     color = models.CharField(max_length=30)
+     fact = models.CharField(max_length= 160, default = [0])
+
+     def __str__(self):
+          return self.type

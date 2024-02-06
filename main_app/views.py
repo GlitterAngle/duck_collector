@@ -1,8 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import generics
-from .models import Duck, Feeding
-from .serializers import DuckSerializer, FeedingSerializer
+from .models import Duck, Feeding, Feather
+from .serializers import DuckSerializer, FeedingSerializer, FeatherSerializer
 
 # Define the home view
 class Home(APIView):
@@ -40,3 +40,12 @@ class FeedingDetail(generics.RetrieveUpdateDestroyAPIView):
   def get_queryset(self):
     duck_id = self.kwargs['duck_id']
     return Feeding.objects.filter(duck_id = duck_id)
+  
+class FeatherList(generics.ListCreateAPIView):
+  queryset = Feather.objects.all()
+  serializer_class = FeatherSerializer
+
+class FeatherDetail(generics.RetrieveUpdateDestroyAPIView):
+  queryset = Feather.objects.all()
+  serializer_class = FeatherSerializer
+  lookup_field = 'id'
