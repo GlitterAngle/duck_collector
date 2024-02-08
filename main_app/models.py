@@ -1,6 +1,8 @@
 from django.db import models
 # this allows me to use date
 from datetime import date
+# this is how you import the pre made user from django
+from django.contrib.auth.models import User
 
 # Create your models here.
 FEATHER_TYPE = (
@@ -25,6 +27,8 @@ class Duck(models.Model):
     description = models.TextField(max_length=250)
     age = models.IntegerField()
     feathers = models.ManyToManyField(Feather)
+     # here you attach the one to many of one user to many ducks
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     def __str__(self):
         return self.name
     # to get this to show up you have to make sure you include it in your serializer under duck

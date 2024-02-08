@@ -1,8 +1,13 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import generics
+from rest_framework import generics, status, permissions
+# include the following imports for auth
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate
+# again because user is built in model add it like so 
+from django.contrib.auth.models import User
 from .models import Duck, Feeding, Feather
-from .serializers import DuckSerializer, FeedingSerializer, FeatherSerializer
+from .serializers import DuckSerializer, FeedingSerializer, FeatherSerializer, UserSerializer
 
 # Define the home view
 class Home(APIView):
@@ -11,14 +16,24 @@ class Home(APIView):
     return Response(content)
 
 class DuckList(generics.ListCreateAPIView):
-  queryset = Duck.objects.all()
   serializer_class = DuckSerializer
+  permission_classes = [permissions.IsAuthenticated]
+
+  def get_queryset(self):
+    user = self.request.user
+    return Duck.objects.filter(user=user)
+
+  def perform_creat(self, serializer):
+    serializer.save(user=self.request.user)
 
 class DuckDetail(generics.RetrieveUpdateDestroyAPIView):
-  queryset = Duck.objects.all()
   serializer_class = DuckSerializer
   # this here will be looking for something that just says id just a number
   lookup_field = 'id'
+
+  def get_queryset(self):
+    user = self.request.user
+    return Duck.objects.filter(user=user)
 
   def retrieve(self, request, *args, **kwargs):
     instance = self.get_object()
@@ -32,6 +47,18 @@ class DuckDetail(generics.RetrieveUpdateDestroyAPIView):
       'duck': serializer.data,
       'feathers_not_associated': feathers_serializer.data
     })
+  
+  def perform_updat(self, serializer):
+    duck = self.get_object()
+    if duck.user != self.request.user:
+      raise PermissionDenied({"message": "You do not have permission to edit this cat."})
+    serializer.save()
+  
+  def perform_destroy(self, instance):
+    if instance.user != self.request.user:
+      raise PermissionDenied({"message": "You do not have permission to delete this cat."})
+    instance.delete()
+
 
 
 class FeedingListCreate(generics.ListCreateAPIView):
@@ -76,3 +103,45 @@ class RemoveFeatherFromDuck(APIView):
     feather = Feather.objects.get(id=feather_id)
     duck.feathers.remove(feather)
     return Response({'message': f'Feather {feather.type} removed from Duck {duck.name}'})
+  
+class CreateUserView(generics.CreateAPIView):
+  queryset = User.objects.all()
+  serializer_class = UserSerializer
+
+  def create(self, request, *args, **kwargs):
+    response = super().create(request, *args, **kwargs)
+    user = User.objects.get(username=response.data['username'])
+    refresh = RefreshToken.for_user(user)
+    return Response ({
+      'refresh': str(refresh),
+      'access': str(refresh.access_token),
+      'user': response.data
+    })
+  
+class LoginView(APIView):
+  permission_classes = [permissions.AllowAny]
+
+  def post(self, request):
+    username = request.data.get('username')
+    password = request.data.get('password')
+    user = authenticate(username=username, password=password)
+    if user: 
+      refresh = RefreshToken.for_user(user)
+      return Response({
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+        'user': UserSerializer(user).data
+      })
+    return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+  
+class VerifyUserView(APIView):
+  permission_classes = [permissions.IsAuthenticated]
+
+  def get(self, request):
+    user = User.objects.get(username=request.user)
+    refresh = RefreshToken.for_user(request.user)
+    return Response({
+      'refresh': str(refresh),
+      'access': str(refresh.access_token),
+      'user': UserSerializer(user).data
+    })
